@@ -7,7 +7,6 @@ try{
     Write-Error $Error[0] -ErrorAction Stop
 }
 
-
 #Append exe paths to install path.
 $FPOSPath = "$FPOSDirectory\Bin\Fpos.exe"
 $UTGPath = "$Shift4Directory\UTG2\Utg2.exe"
@@ -19,6 +18,14 @@ if(Test-Path -Path $FPOSPath){
     Write-Host "FPOS Installation Path Found.`n"
 }else{
     Write-Error "No FPOS Install Directory Found. Will now exit.`n" -ErrorAction Stop
+}
+
+#Check if full path exists.
+Write-Host "`nConfirming UTG Installation Path."
+if(Test-Path -Path $UTGVersion){
+    Write-Host "UTG Installation Path Found.`n"
+}else{
+    Write-Error "No UTG Install Directory Found. Will now exit.`n" -ErrorAction Stop
 }
 
 #Define the minimum versions for offline CC.
@@ -102,6 +109,21 @@ Write-Host "`n"
 Write-Host "Closing FPOS and UTG.`n"
 Get-process | ?{$_.Name -Like "*utg*" -OR $_.Name -eq "fpos"} | %{Stop-Process -Name $_.Name -force} 
 
+#Attempt to Start UTG
+Write-Host "Attempting to Start UTG"
+try{
+	Start-Process -FilePath $UTGPath
+	Write-Host "Successfully Initiated UTG Startup.`n"
+}
+catch{
+	Write-Warning $Error[0]
+    Write-Warning "Failed to Start UTG.`n"
+}
+
+Write-Host -NoNewLine "Press Any Button to Continue..."
+[void][System.Console]::ReadKey($true)
+Write-Host "`n"
+
 #Attempt to Start FPOS
 Write-Host "Attempting to Start FPOS."
 try{
@@ -113,16 +135,7 @@ catch{
     Write-Warning "Failed to Start FPOS.`n"
 }
 
-#Attempt Start UTG
-Write-Host "Attempting to Start UTG"
-try{
-	Start-Process -FilePath $UTGPath
-	Write-Host "Successfully Initiated UTG Startup.`n"
-}
-catch{
-	Write-Warning $Error[0]
-    Write-Warning "Failed to Start UTG.`n"
-}
+Set-ExecutionPolicy -ExecutionPolicy Restricted -Force
 
 
 
