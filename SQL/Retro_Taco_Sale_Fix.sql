@@ -1,0 +1,14 @@
+BEGIN TRAN
+
+DECLARE @SALEID uniqueidentifier
+
+SET @SALEID = (SELECT SaleID FROM Store36130_r1.dbo.Sale 
+WHERE CheckNumber = 98668)
+
+DELETE FROM Store36130_r1.dbo.Sale
+WHERE SaleID = @SALEID
+
+SELECT SaleID FROM Store36130_r1.dbo.Sale 
+WHERE CheckNumber = 98668
+
+ROLLBACK

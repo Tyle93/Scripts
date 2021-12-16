@@ -1,4 +1,85 @@
 
+function Download {
+    param ( 
+        [Parameter(Mandatory=$true)]
+        [string]
+        $URL,
+        [Parameter(Mandatory=$true)]
+        [string]
+        $OutFile
+    )
+    PROCESS{
+        try{
+            Invoke-WebRequest -Uri $URL -OutFile $OutFile 
+            Write-Host "Successfully Downloaded FPOS.`n"
+        }catch{
+            throw
+        }
+    }
+}
+function Extract {
+    param (
+        # Parameter help description
+        [Parameter(Mandatory=$true)]
+        [string]
+        $FilePath,
+        # Parameter help description
+        [Parameter(Mandatory=$true)]
+        [string]
+        $DestFile
+    )
+    PROCESS{
+        try{
+            Expand-Archive -LiteralPath $FilePath -DestinationPath $DestFile
+        }catch{
+            throw 
+        }    
+    }
+}
+function Install {
+    param (
+        [Parameter(Mandatory=$true)]
+        [string]
+        $FilePath,
+        # Parameter help description
+        [Parameter(Mandatory=$false)]
+        [string[]]
+        $Args = "/s"
+    )
+    PROCESS{
+        try{
+            Start-Process $FilePath -ArgumentList $args
+        }catch{
+            throw
+        }
+    }
+}
+
+function FutureDownload {
+    param(
+        [switch] $a
+    )
+    PROCESS{
+        $FutureInstallPath = 'C:\FPOS-INSTALL\FUTURE\'
+        $FutureFileName = 'Future-6.0.7.28'
+        $FutureZipName = 'Future-6.0.7.28.zip'
+        $FutureOutPath = $FutureInstallPath + $FutureZipName
+        $FutureUnzippedPath = $FutureInstallPath + $FutureFileName
+        $FutureDownloadURL = 'https://s3.amazonaws.com/ces-web-files/-2/Future-6.0.7.28.zip'
+        try{
+            Download($FutureDownloadURL,$FutureOutPath)
+            Extract($FutureOutPath,$FutureUnzippedPath)
+            Install($FutureUnzippedPath)
+        }catch{
+            Write-Error $_.Exception.Message -ErrorAction Stop
+        }
+    }
+
+}
+Write-Host -NoNewLine "Press Any Button to Continue..."
+[void][System.Console]::ReadKey($true)
+Write-Host "`n"
+
 #Get FPOS and UTG Install Directories from registry entries.
 try{
     $FPOSDirectory= (Get-Item -Path Registry::HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\"Future P.O.S."\Directories).GetValue("FPOS Directory")
@@ -11,21 +92,39 @@ try{
 $FPOSPath = "$FPOSDirectory\Bin\Fpos.exe"
 $UTGPath = "$Shift4Directory\UTG2\Utg2.exe"
 $BackOfficePath = "$FPOSDirectory\Bin\FPOSMenu.exe"
-
 #Check if full path exists.
 Write-Host "`nConfirming FPOS Installation Path."
 if(Test-Path -Path $FPOSPath){
     Write-Host "FPOS Installation Path Found.`n"
 }else{
-    Write-Error "No FPOS Install Directory Found. Will now exit.`n" -ErrorAction Stop
+    Write-Warning "No FPOS Install Directory Found.`n" 
+    Write-Error "Would you like to download the latest version of FPOS?(Y/n)"
+    $selection = [void][System.Console]::ReadLine().ToLower();
+    switch ($selection) {
+        'y'{}
+        'yes'{
+            FutureDownload();
+            break;
+        } 
+        'n'{}
+        'no'{
+            Write-Host "Closing..." 
+            Exit
+            break
+        }
+        Default {         
+            Write-Host "Invalid Input."
+            break
+        }
+    }
 }
 
 #Check if full path exists.
 Write-Host "`nConfirming UTG Installation Path."
-if(Test-Path -Path $UTGVersion){
+if(Test-Path -Path $UTGPath){
     Write-Host "UTG Installation Path Found.`n"
 }else{
-    Write-Error "No UTG Install Directory Found. Will now exit.`n" -ErrorAction Stop
+    Write-Error "No UTG Install Directory Found.`n" -ErrorAction Stop
 }
 
 #Define the minimum versions for offline CC.
@@ -35,8 +134,8 @@ if(Test-Path -Path $UTGVersion){
 
 #Create Version objects from the exe's version property.
 try{
-    [System.Version]$FPOSVersion = [System.Version]::Parse((Get-Item $FPOSPath).VersionInfo.FileVersion)
-    [System.Version]$UTGVersion = [System.Version]::Parse((Get-Item $UTGPath).VersionInfo.FileVersion)
+    $FPOSVersion = [System.Version]::Parse((Get-Item $FPOSPath).VersionInfo.FileVersion)
+    $UTGVersion = [System.Version]::Parse((Get-Item $UTGPath).VersionInfo.FileVersion)
 }catch{
     Write-Error $Error[0] -ErrorAction Stop
 }
@@ -59,14 +158,14 @@ if($FPOSVersion.Major -eq 5){
 
 #Terminate if minimum FPOS version not met.
 if($ComparisonResult -ne $true){
-    Write-Error "Version $FPOSVersion of FPOS does not meet the Minimum requirements for Offline CC. Now Exiting`n" -ErrorAction Stop 
+    Write-Error "Version $FPOSVersion of FPOS does not meet the Minimum requirements for Offline CC.`n" -ErrorAction Stop 
 }else{
     Write-Host "Minimum FPOS Version Requirements Met."
 }
 
 #Terminate if minimum UTG version not met.
 if($UTGVersion -lt $MinumumUTGVersion){
-    Write-Error "Version $UTGVersion of UTG does not meet the minimum requirements for Offline CC. Now Exiting" -ErrorAction Stop
+    Write-Error "Version $UTGVersion of UTG does not meet the minimum requirements for Offline CC." -ErrorAction Stop
 }else{
     Write-Host "Minimum UTG Version Requirements Met.`n"
 }
